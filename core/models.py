@@ -1,35 +1,36 @@
 from django.db import models
+from django.core.validators import RegexValidator
 
 plate_validators = [
-    models.validators.RegexValidator(
+    RegexValidator(
         regex=r'^(?:[A-Z]{3}\-\d{4}|[A-Z]{3}\d[A-Z]\d{2})$',
         message='Placa deve ser nesse formato: XXX-0000 ou ABC1D23'
         )
 ]
 
 cpf_validators = [
-    models.validators.RegexValidator(
+    RegexValidator(
         regex=r'^\d{3}\.\d{3}\.\d{3}\-\d{2}$',
         message='CPF deve ser nesse formato: XXX.XXX.XXX-XX'
         )
 ]
 
 phone_validators = [
-    models.validators.RegexValidator(
+    RegexValidator(
         regex=r'^\(\d{2}\) \d{4,5}\-\d{4}$',
         message='Telefone deve ser nesse formato: (XX) XXXXX-XXXX'
         )
 ]
 
 cep_validators = [
-    models.validators.RegexValidator(
+    RegexValidator(
         regex=r'^\d{5}\-\d{3}$',
         message='CEP deve ser nesse formato: XXXXX-XXX'
         )
 ]
 
 cnpj_validators = [
-    models.validators.RegexValidator(
+    RegexValidator(
         regex=r'^\d{2}\.\d{3}\.\d{3}/\d{4}\-\d{2}$',
         message='CNPJ deve ser nesse formato: XX.XXX.XXX/XXXX-XX'
         )
