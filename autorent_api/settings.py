@@ -72,15 +72,16 @@ WSGI_APPLICATION = 'autorent_api.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+from decouple import config
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'autorent_db',
-        'USER': 'postgres',
-        'PASSWORD': 'your_password',
+        'NAME': config('POSTGRES_DB'),
+        'USER': config('POSTGRES_USER'),
+        'PASSWORD': config('POSTGRES_PASSWORD'),
         'HOST': 'localhost',
-        'PORT': '5432',
+        'PORT': config('POSTGRES_PORT'),
     }   
 }
 
