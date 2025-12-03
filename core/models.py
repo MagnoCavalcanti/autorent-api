@@ -36,60 +36,97 @@ cnpj_validators = [
         )
 ]
 
-class Car(models.Model):
-    plate=models.CharField(max_length=10, unique=True, validators=plate_validators)
-    model=models.CharField(max_length=50)
-    brand=models.CharField(max_length=50)
-    year=models.PositiveIntegerField()
-    status=models.CharField(max_length=20, choices=[('disponivel', 'Disponível'), ('indisponivel', 'Indisponível'), ('manutenção', 'Manutenção')], default='disponivel')
+class Carro(models.Model):
+    placa = models.CharField(max_length=10, unique=True, validators=plate_validators, verbose_name='Placa')
+    modelo = models.CharField(max_length=50, verbose_name='Modelo')
+    marca = models.CharField(max_length=50, verbose_name='Marca')
+    ano = models.PositiveIntegerField(verbose_name='Ano')
+    status = models.CharField(
+        max_length=20, 
+        choices=[('disponivel', 'Disponível'), ('indisponivel', 'Indisponível'), ('manutencao', 'Manutenção')], 
+        default='disponivel',
+        verbose_name='Status'
+    )
+
+    class Meta:
+        db_table = 'carro'
+        verbose_name = 'Carro'
+        verbose_name_plural = 'Carros'
 
     def __str__(self):
-        return f"{self.brand} {self.model} ({self.plate}) - {self.status}"
-    
-class Customer(models.Model):
-    name=models.CharField(max_length=100)
-    cpf=models.CharField(max_length=14, unique=True, validators=cpf_validators)
-    email=models.EmailField(unique=True)
-    phone=models.CharField(max_length=15, unique=True, validators=phone_validators)
-    cep=models.CharField(max_length=9, validators=cep_validators)
+        return f"{self.marca} {self.modelo} ({self.placa}) - {self.get_status_display()}"
 
+class Cliente(models.Model):
+    nome = models.CharField(max_length=100, verbose_name='Nome')
+    cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
+    email = models.EmailField(unique=True, verbose_name='E-mail')
+    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
 
-    def __str__(self):
-        return self.name
-    
-class Enterprise(models.Model):
-    name=models.CharField(max_length=100)
-    cnpj=models.CharField(max_length=18, unique=True, validators=cnpj_validators)
-    email=models.EmailField(unique=True)
-    phone=models.CharField(max_length=15, unique=True, validators=phone_validators)
-    cep=models.CharField(max_length=9, validators=cep_validators)
+    class Meta:
+        db_table = 'cliente'
+        verbose_name = 'Cliente'
+        verbose_name_plural = 'Clientes'
 
     def __str__(self):
-        return self.name
-    
-class User(models.Model):
-    username=models.CharField(max_length=50, unique=True)
-    password=models.CharField(max_length=128)
-    enterprise=models.ForeignKey(Enterprise, on_delete=models.CASCADE)
+        return self.nome
+
+class Empresa(models.Model):
+    nome = models.CharField(max_length=100, verbose_name='Nome')
+    cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
+    email = models.EmailField(unique=True, verbose_name='E-mail')
+    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
+
+    class Meta:
+        db_table = 'empresa'
+        verbose_name = 'Empresa'
+        verbose_name_plural = 'Empresas'
 
     def __str__(self):
-        return self.username
-    
-class Seller(models.Model):
-    name=models.CharField(max_length=100)
-    cpf=models.CharField(max_length=14, unique=True, validators=cpf_validators)
-    email=models.EmailField(unique=True)
-    phone=models.CharField(max_length=15, unique=True, validators=phone_validators)
+        return self.nome
+
+class Usuario(models.Model):
+    nome_usuario = models.CharField(max_length=50, unique=True, verbose_name='Nome de Usuário')
+    senha = models.CharField(max_length=128, verbose_name='Senha')
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+
+    class Meta:
+        db_table = 'usuario'
+        verbose_name = 'Usuário'
+        verbose_name_plural = 'Usuários'
 
     def __str__(self):
-        return self.name
-    
-class Rental(models.Model):
-    date_rent=models.DateField()
-    date_return_predicted=models.DateField()
-    date_return_real=models.DateField(null=True, blank=True)
-    total_value=models.DecimalField(max_digits=10, decimal_places=2)
-    car=models.ForeignKey(Car, on_delete=models.CASCADE)
-    customer=models.ForeignKey(Customer, on_delete=models.CASCADE)
-    seller=models.ForeignKey(Seller, on_delete=models.CASCADE)
-    enterprise=models.ForeignKey(Enterprise, on_delete=models.CASCADE)
+        return self.nome_usuario
+
+class Vendedor(models.Model):
+    nome = models.CharField(max_length=100, verbose_name='Nome')
+    cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
+    email = models.EmailField(unique=True, verbose_name='E-mail')
+    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+
+    class Meta:
+        db_table = 'vendedor'
+        verbose_name = 'Vendedor'
+        verbose_name_plural = 'Vendedores'
+
+    def __str__(self):
+        return self.nome
+
+class Aluguel(models.Model):
+    data_aluguel = models.DateField(verbose_name='Data de Aluguel')
+    data_devolucao_prevista = models.DateField(verbose_name='Data de Devolução Prevista')
+    data_devolucao_real = models.DateField(null=True, blank=True, verbose_name='Data de Devolução Real')
+    valor_total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Valor Total')
+    carro = models.ForeignKey(Carro, on_delete=models.CASCADE, verbose_name='Carro', db_column='carro_id')
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name='Cliente', db_column='cliente_id')
+    vendedor = models.ForeignKey(Vendedor, on_delete=models.CASCADE, verbose_name='Vendedor', db_column='vendedor_id')
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+
+    class Meta:
+        db_table = 'aluguel'
+        verbose_name = 'Aluguel'
+        verbose_name_plural = 'Aluguéis'
+
+    def __str__(self):
+        return f"Aluguel {self.id} - {self.cliente.nome} - {self.carro.modelo}"
