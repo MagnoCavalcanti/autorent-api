@@ -56,7 +56,7 @@ class Empresa(models.Model):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
     email = models.EmailField(unique=True, verbose_name='E-mail')
-    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    telefone = models.CharField(max_length=20, unique=True, validators=phone_validators, verbose_name='Telefone')
     cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
 
     class Meta:
@@ -94,7 +94,7 @@ class Cliente(models.Model):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
     email = models.EmailField(unique=True, verbose_name='E-mail')
-    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    telefone = models.CharField(max_length=20, unique=True, validators=phone_validators, verbose_name='Telefone')
     cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
 
     class Meta:
@@ -124,7 +124,7 @@ class Vendedor(models.Model):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
     email = models.EmailField(unique=True, verbose_name='E-mail')
-    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    telefone = models.CharField(max_length=20, unique=True, validators=phone_validators, verbose_name='Telefone')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
