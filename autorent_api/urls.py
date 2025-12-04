@@ -36,5 +36,5 @@ route.register(r'alugueis', AluguelViewSet, basename='aluguel')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(route.urls)),
+    path('api/v1/', include(route.urls)),
 ]
