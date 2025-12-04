@@ -83,7 +83,7 @@ class Carro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
-        db_table = 'carro'
+        db_table = 'carros'
         verbose_name = 'Carro'
         verbose_name_plural = 'Carros'
 
@@ -98,7 +98,7 @@ class Cliente(models.Model):
     cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
 
     class Meta:
-        db_table = 'cliente'
+        db_table = 'clientes'
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
 
@@ -113,7 +113,7 @@ class Usuario(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
-        db_table = 'usuario'
+        db_table = 'usuarios'
         verbose_name = 'Usuário'
         verbose_name_plural = 'Usuários'
 
@@ -128,7 +128,7 @@ class Vendedor(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
-        db_table = 'vendedor'
+        db_table = 'vendedores'
         verbose_name = 'Vendedor'
         verbose_name_plural = 'Vendedores'
 
@@ -170,7 +170,7 @@ class Aluguel(models.Model):
         super().save(*args, **kwargs)    
 
     class Meta:
-        db_table = 'aluguel'
+        db_table = 'alugueis'
         verbose_name = 'Aluguel'
         verbose_name_plural = 'Aluguéis'
 
