@@ -1,6 +1,4 @@
--- ==========================================================
--- Tabela: Empresa
--- ==========================================================
+
 CREATE TABLE empresa (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
@@ -10,22 +8,21 @@ CREATE TABLE empresa (
     cep VARCHAR(9) NOT NULL
 );
 
--- ==========================================================
--- Tabela: Carro
--- ==========================================================
+
 CREATE TABLE carro (
     id SERIAL PRIMARY KEY,
     placa VARCHAR(10) UNIQUE NOT NULL,
     modelo VARCHAR(50) NOT NULL,
     marca VARCHAR(50) NOT NULL,
     ano INTEGER NOT NULL CHECK (ano >= 0),
+    preco_base_dia DECIMAL(10,2) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'disponivel'
-        CHECK (status IN ('disponivel', 'indisponivel', 'manutencao'))
+        CHECK (status IN ('disponivel', 'indisponivel', 'manutencao')),
+    empresa_id INTEGER NOT NULL,
+    FOREIGN KEY (empresa_id) REFERENCES empresa(id) ON DELETE CASCADE
 );
 
--- ==========================================================
--- Tabela: Cliente
--- ==========================================================
+
 CREATE TABLE cliente (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
@@ -35,9 +32,7 @@ CREATE TABLE cliente (
     cep VARCHAR(9) NOT NULL
 );
 
--- ==========================================================
--- Tabela: Usuario
--- ==========================================================
+
 CREATE TABLE usuario (
     id SERIAL PRIMARY KEY,
     nome_usuario VARCHAR(50) UNIQUE NOT NULL,
@@ -46,20 +41,18 @@ CREATE TABLE usuario (
     FOREIGN KEY (empresa_id) REFERENCES empresa(id) ON DELETE CASCADE
 );
 
--- ==========================================================
--- Tabela: Vendedor
--- ==========================================================
+
 CREATE TABLE vendedor (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     cpf VARCHAR(14) UNIQUE NOT NULL,
     email VARCHAR(254) UNIQUE NOT NULL,
-    telefone VARCHAR(15) UNIQUE NOT NULL
+    telefone VARCHAR(15) UNIQUE NOT NULL,
+    empresa_id INTEGER NOT NULL,
+    FOREIGN KEY (empresa_id) REFERENCES empresa(id) ON DELETE CASCADE
 );
 
--- ==========================================================
--- Tabela: Aluguel
--- ==========================================================
+
 CREATE TABLE aluguel (
     id SERIAL PRIMARY KEY,
     data_aluguel DATE NOT NULL,

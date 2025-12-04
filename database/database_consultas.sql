@@ -2,22 +2,25 @@
 SELECT *
 FROM cliente;
 
--- 2) Consulta usando COUNT() com GROUP BY (quantidade de carros por status)
-SELECT status, COUNT(*) AS quantidade
-FROM carro
-GROUP BY status
-ORDER BY quantidade DESC;
+-- 2) Consulta usando COUNT() com GROUP BY (quantidade de aluguéis por cliente)
+SELECT c.nome AS cliente, COUNT(a.id) AS quantidade_alugueis
+FROM cliente c
+LEFT JOIN aluguel a ON a.cliente_id = c.id
+GROUP BY c.id, c.nome
+ORDER BY quantidade_alugueis DESC;
 
--- 3) Consulta usando AVG() (média de ano dos carros)
-SELECT AVG(ano) AS media_ano_carros
-FROM carro;
+-- 3) Consulta usando AVG() (média de faturamento por aluguel)
+SELECT AVG(valor_total) AS media_faturamento_aluguel
+FROM aluguel;
 
--- 4) Consulta usando AVG() (média de valor dos aluguéis por empresa)
-SELECT e.nome AS empresa, AVG(a.valor_total) AS media_valor_alugueis
-FROM aluguel a
-JOIN empresa e ON e.id = a.empresa_id
-GROUP BY e.nome
-ORDER BY media_valor_alugueis DESC;
+-- 4) Consulta usando AVG() (média de carros por empresa)
+SELECT AVG(total_carros) AS media_carros_por_empresa
+FROM (
+    SELECT e.id, e.nome, COUNT(c.id) AS total_carros
+    FROM empresa e
+    LEFT JOIN carro c ON c.empresa_id = e.id
+    GROUP BY e.id, e.nome
+) AS carros_empresa;
 
 -- 5) Consulta usando JOIN (alugueis com cliente e carro)
 SELECT a.id AS aluguel_id,
