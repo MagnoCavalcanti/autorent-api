@@ -1,5 +1,21 @@
 from django.db import models
 from django.core.validators import RegexValidator
+from datetime import timedelta, date
+from decimal import Decimal
+
+# ------------------------
+# LISTA DE FERIADOS
+# ------------------------
+FERIADOS = [
+    date(2025, 1, 1),   # Ano Novo
+    date(2025, 4, 21),  # Tiradentes
+    date(2025, 5, 1),   # Dia do Trabalho
+    date(2025, 9, 7),   # Independência
+    date(2025, 10, 12), # Nossa Senhora Aparecida
+    date(2025, 11, 2),  # Finados
+    date(2025, 11, 15), # Proclamação da República
+    date(2025, 12, 25), # Natal
+]
 
 plate_validators = [
     RegexValidator(
@@ -41,6 +57,8 @@ class Carro(models.Model):
     modelo = models.CharField(max_length=50, verbose_name='Modelo')
     marca = models.CharField(max_length=50, verbose_name='Marca')
     ano = models.PositiveIntegerField(verbose_name='Ano')
+    preco_base_dia = models.DecimalField(max_digits=10, 
+    decimal_places=2, verbose_name='Preço Base por Dia', default=100.00)
     status = models.CharField(
         max_length=20, 
         choices=[('disponivel', 'Disponível'), ('indisponivel', 'Indisponível'), ('manutencao', 'Manutenção')], 
@@ -122,6 +140,30 @@ class Aluguel(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name='Cliente', db_column='cliente_id')
     vendedor = models.ForeignKey(Vendedor, on_delete=models.CASCADE, verbose_name='Vendedor', db_column='vendedor_id')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+
+    def calcular_preco(self):
+        dias = (self.data_devolucao_prevista - self.data_aluguel).days + 1
+        total = Decimal(dias) * self.carro.preco_base_dia
+
+        # verifica se há feriado no intervalo
+        data_atual = self.data_aluguel
+        aumento_por_feriado = False
+
+        while data_atual <= self.data_devolucao_prevista:
+            if data_atual in FERIADOS:
+                aumento_por_feriado = True
+                break
+            data_atual += timedelta(days=1)
+
+        if aumento_por_feriado:
+            total *= Decimal('1.20')  # +20%
+
+        return total
+
+    def save(self, *args, **kwargs):
+        if self.data_aluguel and self.data_devolucao_prevista and self.carro:
+            self.valor_total = self.calcular_preco()
+        super().save(*args, **kwargs)    
 
     class Meta:
         db_table = 'aluguel'
