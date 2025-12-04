@@ -52,6 +52,21 @@ cnpj_validators = [
         )
 ]
 
+class Empresa(models.Model):
+    nome = models.CharField(max_length=100, verbose_name='Nome')
+    cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
+    email = models.EmailField(unique=True, verbose_name='E-mail')
+    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
+
+    class Meta:
+        db_table = 'empresa'
+        verbose_name = 'Empresa'
+        verbose_name_plural = 'Empresas'
+
+    def __str__(self):
+        return self.nome
+
 class Carro(models.Model):
     placa = models.CharField(max_length=10, unique=True, validators=plate_validators, verbose_name='Placa')
     modelo = models.CharField(max_length=50, verbose_name='Modelo')
@@ -65,6 +80,7 @@ class Carro(models.Model):
         default='disponivel',
         verbose_name='Status'
     )
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
         db_table = 'carro'
@@ -89,20 +105,7 @@ class Cliente(models.Model):
     def __str__(self):
         return self.nome
 
-class Empresa(models.Model):
-    nome = models.CharField(max_length=100, verbose_name='Nome')
-    cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
-    email = models.EmailField(unique=True, verbose_name='E-mail')
-    telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
-    cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
 
-    class Meta:
-        db_table = 'empresa'
-        verbose_name = 'Empresa'
-        verbose_name_plural = 'Empresas'
-
-    def __str__(self):
-        return self.nome
 
 class Usuario(models.Model):
     nome_usuario = models.CharField(max_length=50, unique=True, verbose_name='Nome de Usuário')
@@ -122,6 +125,7 @@ class Vendedor(models.Model):
     cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
     email = models.EmailField(unique=True, verbose_name='E-mail')
     telefone = models.CharField(max_length=15, unique=True, validators=phone_validators, verbose_name='Telefone')
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
 
     class Meta:
         db_table = 'vendedor'
