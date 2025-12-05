@@ -1,10 +1,10 @@
 from rest_framework import viewsets
-from .models import Carro, Cliente, Empresa, Usuario, Vendedor, Aluguel
+from rest_framework.permissions import IsAuthenticated
+from .models import Carro, Cliente, Empresa, Vendedor, Aluguel
 from .serializers import (
     CarroSerializer,
     ClienteSerializer,
     EmpresaSerializer,
-    UsuarioSerializer,
     VendedorSerializer,
     AluguelSerializer
 )
@@ -16,6 +16,7 @@ class CarroViewSet(viewsets.ModelViewSet):
     """
     queryset = Carro.objects.all()
     serializer_class = CarroSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -32,6 +33,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
     """
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -48,22 +50,10 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     """
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
+    permission_classes = [IsAuthenticated]
 
 
-class UsuarioViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para operações CRUD de Usuario
-    """
-    queryset = Usuario.objects.all()
-    serializer_class = UsuarioSerializer
-    
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        # Filtro opcional por empresa
-        empresa_id = self.request.query_params.get('empresa_id', None)
-        if empresa_id:
-            queryset = queryset.filter(empresa_id=empresa_id)
-        return queryset
+
 
 
 class VendedorViewSet(viewsets.ModelViewSet):
@@ -72,6 +62,7 @@ class VendedorViewSet(viewsets.ModelViewSet):
     """
     queryset = Vendedor.objects.all()
     serializer_class = VendedorSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class AluguelViewSet(viewsets.ModelViewSet):
@@ -80,6 +71,7 @@ class AluguelViewSet(viewsets.ModelViewSet):
     """
     queryset = Aluguel.objects.all()
     serializer_class = AluguelSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         queryset = super().get_queryset()

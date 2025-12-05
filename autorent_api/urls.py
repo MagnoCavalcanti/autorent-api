@@ -21,20 +21,26 @@ from core.viewsets import (
     CarroViewSet,
     ClienteViewSet,
     EmpresaViewSet,
-    UsuarioViewSet,
     VendedorViewSet,
     AluguelViewSet
 )
+from rest_framework_simplejwt.views import TokenRefreshView
+from core.views import MyTokenObtainPairView, registro_usuario
 
 route = routers.DefaultRouter()
 route.register(r'carros', CarroViewSet, basename='carro')
 route.register(r'clientes', ClienteViewSet, basename='cliente')
 route.register(r'empresas', EmpresaViewSet, basename='empresa')
-route.register(r'usuarios', UsuarioViewSet, basename='usuario')
 route.register(r'vendedores', VendedorViewSet, basename='vendedor')
 route.register(r'alugueis', AluguelViewSet, basename='aluguel')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(route.urls)),
+    path('api/v1/auth/registro/', registro_usuario, name='registro'),
+    path('api/v1/auth/login/', MyTokenObtainPairView.as_view(), name='login'),
+    path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
+
+
+

@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.contrib.auth.base_user import BaseUserManager
 from django.core.validators import RegexValidator
 from datetime import timedelta, date
 from decimal import Decimal
@@ -51,6 +53,35 @@ cnpj_validators = [
         message='CNPJ deve ser nesse formato: XX.XXX.XXX/XXXX-XX'
         )
 ]
+
+class UsuarioManager(BaseUserManager):
+    """
+    Manager customizado para o model Usuario.
+    - create_user: cria e salva um usuário normal (usa set_password para hash).
+    - create_superuser: cria um superuser com is_staff/is_superuser True.
+    """
+    def create_user(self, username, password=None, empresa=None, **extra_fields):
+        if not username:
+            raise ValueError('O campo username é obrigatório')
+        # se empresa vier em extra_fields, usa e remove
+        if empresa is None and 'empresa' in extra_fields:
+            empresa = extra_fields.pop('empresa')
+        user = self.model(username=username, empresa=empresa, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser precisa ter is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser precisa ter is_superuser=True.')
+
+        return self.create_user(username, password, **extra_fields)
 
 class Empresa(models.Model):
     nome = models.CharField(max_length=100, verbose_name='Nome')
@@ -107,18 +138,20 @@ class Cliente(models.Model):
 
 
 
-class Usuario(models.Model):
-    nome_usuario = models.CharField(max_length=50, unique=True, verbose_name='Nome de Usuário')
-    senha = models.CharField(max_length=128, verbose_name='Senha')
+class Usuario(AbstractBaseUser, PermissionsMixin):
+    username = models.CharField(max_length=150, unique=True, verbose_name='UserName')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
 
+    objects = UsuarioManager()
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['empresa']
     class Meta:
         db_table = 'usuarios'
         verbose_name = 'Usuário'
         verbose_name_plural = 'Usuários'
 
-    def __str__(self):
-        return self.nome_usuario
 
 class Vendedor(models.Model):
     nome = models.CharField(max_length=100, verbose_name='Nome')
