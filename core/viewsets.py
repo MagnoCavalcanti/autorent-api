@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Carro, Cliente, Empresa, Vendedor, Aluguel
+from rest_framework.exceptions import ValidationError
 from .serializers import (
     CarroSerializer,
     ClienteSerializer,
@@ -8,9 +9,31 @@ from .serializers import (
     VendedorSerializer,
     AluguelSerializer
 )
+from rest_framework import permissions
 from .pagination import FiveResultsPagination  # <-- adicionado
 
-class CarroViewSet(viewsets.ModelViewSet):
+
+
+class EmpresaBaseViewSet(viewsets.ModelViewSet):
+
+    def get_empresa(self):
+        empresa_slug = self.kwargs.get("empresa")
+
+        try:
+            return Empresa.objects.get(nome=empresa_slug)
+        except Empresa.DoesNotExist:
+            raise ValidationError({"empresa": "Empresa não encontrada."})
+
+    def get_queryset(self):
+        empresa = self.get_empresa()
+        return super().get_queryset().filter(empresa=empresa)
+
+    def perform_create(self, serializer):
+        empresa = self.get_empresa()
+        serializer.save(empresa=empresa)
+
+
+class CarroViewSet(EmpresaBaseViewSet, viewsets.ModelViewSet):
     """
     ViewSet para operações CRUD de Carro
     """
@@ -52,12 +75,12 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     """
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
-    permission_classes = [IsAuthenticated]
     pagination_class = FiveResultsPagination  # <-- adicionado
+    permission_classes = [permissions.AllowAny]
 
 
 
-class VendedorViewSet(viewsets.ModelViewSet):
+class VendedorViewSet(EmpresaBaseViewSet, viewsets.ModelViewSet):
     """
     ViewSet para operações CRUD de Vendedor
     """
@@ -67,7 +90,7 @@ class VendedorViewSet(viewsets.ModelViewSet):
     pagination_class = FiveResultsPagination  # <-- adicionado
 
 
-class AluguelViewSet(viewsets.ModelViewSet):
+class AluguelViewSet(EmpresaBaseViewSet):
     """
     ViewSet para operações CRUD de Aluguel
     """
@@ -76,19 +99,7 @@ class AluguelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = FiveResultsPagination  # <-- adicionado
     
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # Filtros opcionais
-        cliente_id = self.request.query_params.get('cliente_id', None)
-        carro_id = self.request.query_params.get('carro_id', None)
-        empresa_id = self.request.query_params.get('empresa_id', None)
-        
-        if cliente_id:
-            queryset = queryset.filter(cliente_id=cliente_id)
-        if carro_id:
-            queryset = queryset.filter(carro_id=carro_id)
-        if empresa_id:
-            queryset = queryset.filter(empresa_id=empresa_id)
-            
-        return queryset.order_by('-data_aluguel')
+
+    def perform_create(self, serializer):
+        empresa = self.get_empresa()
+        serializer.save(empresa=empresa)

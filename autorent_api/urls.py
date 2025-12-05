@@ -29,18 +29,21 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from core.views import MyTokenObtainPairView, registro_usuario
 
 route = routers.DefaultRouter()
-route.register(r'carros', CarroViewSet, basename='carro')
+empresa_route = routers.DefaultRouter()
+empresa_route.register(r'carros', CarroViewSet, basename='carro')
+empresa_route.register(r'vendedores', VendedorViewSet, basename='vendedor')
+empresa_route.register(r'alugueis', AluguelViewSet, basename='aluguel')
+
 route.register(r'clientes', ClienteViewSet, basename='cliente')
 route.register(r'empresas', EmpresaViewSet, basename='empresa')
-route.register(r'vendedores', VendedorViewSet, basename='vendedor')
-route.register(r'alugueis', AluguelViewSet, basename='aluguel')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(route.urls)),
-    path('api/v1/auth/registro/', registro_usuario, name='registro'),
-    path('api/v1/auth/login/', MyTokenObtainPairView.as_view(), name='login'),
+    path('api/v1/<str:empresa>/', include(empresa_route.urls)),
+    path('api/v1/auth/login/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/registro/', registro_usuario, name='registro_usuario'),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),

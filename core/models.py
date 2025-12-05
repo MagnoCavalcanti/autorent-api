@@ -250,6 +250,7 @@ class Aluguel(BaseModel):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name='Cliente', db_column='cliente_id')
     vendedor = models.ForeignKey(Vendedor, on_delete=models.CASCADE, verbose_name='Vendedor', db_column='vendedor_id')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+    multa = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def calcular_preco(self):
         dias = (self.data_devolucao_prevista - self.data_aluguel).days + 1
