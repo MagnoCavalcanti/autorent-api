@@ -10,7 +10,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
     """
     View para obter token JWT.
     POST /api/v1/auth/login/
-    Body: { "nome_usuario": "joao", "password": "senha123" }
+    Body: { "username": "joao", "password": "senha123" }
     """
     serializer_class = MyTokenObtainPairSerializer
 
@@ -24,7 +24,7 @@ def registro_usuario(request):
     
     Body esperado:
     {
-        "nome_usuario": "joao",
+        "username": "joao",
         "password": "senha123",
         "nome_empresa": "AutoRent Brasil",
         "email": "joao@email.com"  # opcional
@@ -34,7 +34,7 @@ def registro_usuario(request):
     {
         "message": "Usuário criado com sucesso!",
         "usuario": {
-            "nome_usuario": "joao",
+            "username": "joao",
             "email": "joao@email.com"
         }
     }
@@ -46,7 +46,7 @@ def registro_usuario(request):
         return Response({
             'message': 'Usuário criado com sucesso!',
             'usuario': {
-                'nome_usuario': serializer.validated_data['nome_usuario'],
+                'username': serializer.validated_data['username'],
                 'email': serializer.validated_data.get('email', '')
             }
         }, status=status.HTTP_201_CREATED)

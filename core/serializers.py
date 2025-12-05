@@ -47,7 +47,7 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
     
     def validate_nome_usuario(self, value):
         """Valida se nome_usuario já existe"""
-        if Usuario.objects.filter(nome_usuario=value).exists():
+        if Usuario.objects.filter(username=value).exists():
             raise serializers.ValidationError('Este nome de usuário já está em uso.')
         return value
     

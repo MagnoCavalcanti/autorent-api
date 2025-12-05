@@ -1,7 +1,9 @@
 from django.db import models
+from django.db.models import QuerySet
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.base_user import BaseUserManager
 from django.core.validators import RegexValidator
+from django.utils import timezone
 from datetime import timedelta, date
 from decimal import Decimal
 
@@ -83,7 +85,78 @@ class UsuarioManager(BaseUserManager):
 
         return self.create_user(username, password, **extra_fields)
 
-class Empresa(models.Model):
+# ---------- BaseModel, SoftDeleteQuerySet e Manager ----------
+class SoftDeleteQuerySet(QuerySet):
+    def delete(self):
+        return super().update(is_deleted=True, deleted_at=timezone.now())
+
+    def hard_delete(self):
+        return super().delete()
+
+    def restore(self):
+        return super().update(is_deleted=False, deleted_at=None)
+
+    def alive(self):
+        return self.filter(is_deleted=False)
+
+    def dead(self):
+        return self.filter(is_deleted=True)
+
+
+class SoftDeleteManager(models.Manager):
+    def get_queryset(self):
+        return SoftDeleteQuerySet(self.model, using=self._db).filter(is_deleted=False)
+
+    def with_deleted(self):
+        return SoftDeleteQuerySet(self.model, using=self._db)
+
+    def only_deleted(self):
+        return self.with_deleted().filter(is_deleted=True)
+
+
+class BaseModel(models.Model):
+    """
+    Modelo abstrato com:
+    - created_at / updated_at
+    - soft-delete (is_deleted, deleted_at) e métodos de soft/hard delete
+    - version para controle de versão simples
+    """
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()  # acessa todos os registros, inclusive deletados
+
+    class Meta:
+        abstract = True
+
+    def delete(self, using=None, keep_parents=False, hard=False):
+        if hard:
+            return super().delete(using=using, keep_parents=keep_parents)
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        # incrementa versão antes de salvar
+        self.version = (self.version or 1) + 1
+        self.save(update_fields=['is_deleted', 'deleted_at', 'version'])
+
+    def hard_delete(self):
+        return super().delete()
+
+    def restore(self):
+        self.is_deleted = False
+        self.deleted_at = None
+        self.version = (self.version or 1) + 1
+        self.save(update_fields=['is_deleted', 'deleted_at', 'version'])
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            self.version = (self.version or 1) + 1
+        super().save(*args, **kwargs)
+
+class Empresa(BaseModel):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
     email = models.EmailField(unique=True, verbose_name='E-mail')
@@ -98,7 +171,7 @@ class Empresa(models.Model):
     def __str__(self):
         return self.nome
 
-class Carro(models.Model):
+class Carro(BaseModel):
     placa = models.CharField(max_length=10, unique=True, validators=plate_validators, verbose_name='Placa')
     modelo = models.CharField(max_length=50, verbose_name='Modelo')
     marca = models.CharField(max_length=50, verbose_name='Marca')
@@ -121,7 +194,7 @@ class Carro(models.Model):
     def __str__(self):
         return f"{self.marca} {self.modelo} ({self.placa}) - {self.get_status_display()}"
 
-class Cliente(models.Model):
+class Cliente(BaseModel):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
     email = models.EmailField(unique=True, verbose_name='E-mail')
@@ -153,7 +226,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = 'Usuários'
 
 
-class Vendedor(models.Model):
+class Vendedor(BaseModel):
     nome = models.CharField(max_length=100, verbose_name='Nome')
     cpf = models.CharField(max_length=14, unique=True, validators=cpf_validators, verbose_name='CPF')
     email = models.EmailField(unique=True, verbose_name='E-mail')
@@ -168,7 +241,7 @@ class Vendedor(models.Model):
     def __str__(self):
         return self.nome
 
-class Aluguel(models.Model):
+class Aluguel(BaseModel):
     data_aluguel = models.DateField(verbose_name='Data de Aluguel')
     data_devolucao_prevista = models.DateField(verbose_name='Data de Devolução Prevista')
     data_devolucao_real = models.DateField(null=True, blank=True, verbose_name='Data de Devolução Real')
