@@ -8,7 +8,7 @@ from .serializers import (
     VendedorSerializer,
     AluguelSerializer
 )
-
+from .pagination import FiveResultsPagination  # <-- adicionado
 
 class CarroViewSet(viewsets.ModelViewSet):
     """
@@ -17,6 +17,7 @@ class CarroViewSet(viewsets.ModelViewSet):
     queryset = Carro.objects.all()
     serializer_class = CarroSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = FiveResultsPagination  # <-- adicionado
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -34,6 +35,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = FiveResultsPagination  # <-- adicionado
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -51,8 +53,7 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
     permission_classes = [IsAuthenticated]
-
-
+    pagination_class = FiveResultsPagination  # <-- adicionado
 
 
 
@@ -63,6 +64,7 @@ class VendedorViewSet(viewsets.ModelViewSet):
     queryset = Vendedor.objects.all()
     serializer_class = VendedorSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = FiveResultsPagination  # <-- adicionado
 
 
 class AluguelViewSet(viewsets.ModelViewSet):
@@ -72,6 +74,7 @@ class AluguelViewSet(viewsets.ModelViewSet):
     queryset = Aluguel.objects.all()
     serializer_class = AluguelSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = FiveResultsPagination  # <-- adicionado
     
     def get_queryset(self):
         queryset = super().get_queryset()
