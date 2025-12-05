@@ -6,28 +6,28 @@ from django.contrib.auth import authenticate
 class CarroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Carro
-        fields = '__all__'
+        fields = ['marca', 'modelo', 'ano', 'placa', 'status', 'preco_base_dia', 'empresa']
 
 class ClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cliente
-        fields = '__all__'
+        fields = ['nome', 'cpf', 'email', 'telefone', 'cep']
 
 class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = '__all__'
+        fields = ['nome', 'cep', 'telefone', 'email', 'cnpj']
 
 
 class VendedorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendedor
-        fields = '__all__'
+        fields = ['nome', 'cpf', 'email', 'telefone', 'empresa']
         
 class AluguelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Aluguel
-        fields = '__all__'
+        fields = ['carro', 'cliente', 'vendedor', 'empresa', 'data_aluguel', 'data_devolucao_prevista', 'valor_total']
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     """
