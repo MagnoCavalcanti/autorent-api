@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     'drf_spectacular_sidecar',
+    "corsheaders",
 ]
 
 REST_FRAMEWORK = {
@@ -62,6 +63,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,6 +71,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",   
 ]
 
 ROOT_URLCONF = 'autorent_api.urls'
@@ -101,7 +107,7 @@ DATABASES = {
         'NAME': config('POSTGRES_DB'),
         'USER': config('POSTGRES_USER'),
         'PASSWORD': config('POSTGRES_PASSWORD'),
-        'HOST': 'localhost',
+        'HOST': config('POSTGRES_HOST'),
         'PORT': config('POSTGRES_PORT'),
     }   
 }
