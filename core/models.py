@@ -6,6 +6,8 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 from datetime import timedelta, date
 from decimal import Decimal
+import re
+import unicodedata
 
 # ------------------------
 # LISTA DE FERIADOS
@@ -158,6 +160,7 @@ class BaseModel(models.Model):
 
 class Empresa(BaseModel):
     nome = models.CharField(max_length=100, verbose_name='Nome')
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
     cnpj = models.CharField(max_length=18, unique=True, validators=cnpj_validators, verbose_name='CNPJ')
     email = models.EmailField(unique=True, verbose_name='E-mail')
     telefone = models.CharField(max_length=20, unique=True, validators=phone_validators, verbose_name='Telefone')
@@ -170,6 +173,17 @@ class Empresa(BaseModel):
 
     def __str__(self):
         return self.nome
+
+    @staticmethod
+    def gerar_slug(nome):
+        nome_normalizado = unicodedata.normalize('NFKD', nome or '')
+        nome_sem_acentos = nome_normalizado.encode('ascii', 'ignore').decode('ascii')
+        slug = re.sub(r'[^a-zA-Z0-9\s]', '', nome_sem_acentos).lower()
+        return re.sub(r'\s+', '', slug)
+
+    def save(self, *args, **kwargs):
+        self.slug = self.gerar_slug(self.nome)
+        super().save(*args, **kwargs)
 
 class Carro(BaseModel):
     placa = models.CharField(max_length=10, unique=True, validators=plate_validators, verbose_name='Placa')
@@ -213,13 +227,20 @@ class Cliente(BaseModel):
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True, verbose_name='UserName')
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        verbose_name='Empresa',
+        db_column='empresa_id',
+        null=True,
+        blank=True,
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     objects = UsuarioManager()
     USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['empresa']
+    REQUIRED_FIELDS = []
     class Meta:
         db_table = 'usuarios'
         verbose_name = 'Usuário'

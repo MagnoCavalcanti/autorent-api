@@ -1,7 +1,9 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Carro, Cliente, Empresa, Vendedor, Aluguel
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from .serializers import (
     CarroSerializer,
     ClienteSerializer,
@@ -20,7 +22,7 @@ class EmpresaBaseViewSet(viewsets.ModelViewSet):
         empresa_slug = self.kwargs.get("empresa")
 
         try:
-            return Empresa.objects.get(nome=empresa_slug)
+            return Empresa.objects.get(slug=empresa_slug)
         except Empresa.DoesNotExist:
             raise ValidationError({"empresa": "Empresa não encontrada."})
 
@@ -77,6 +79,14 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     serializer_class = EmpresaSerializer
     pagination_class = FiveResultsPagination  # <-- adicionado
     permission_classes = [permissions.AllowAny]
+
+    @action(detail=False, methods=['get'], url_path=r'(?P<slug>[^/.]+)')
+    def nome_por_slug(self, request, slug=None):
+        try:
+            empresa = Empresa.objects.get(slug=slug)
+        except Empresa.DoesNotExist:
+            raise NotFound('Empresa não encontrada.')
+        return Response({'nome': empresa.nome})
 
 
 
