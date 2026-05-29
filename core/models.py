@@ -63,12 +63,15 @@ class UsuarioManager(BaseUserManager):
     - create_superuser: cria um superuser com is_staff/is_superuser True.
     """
     def create_user(self, username, password=None, empresa=None, **extra_fields):
-        if not username:
-            raise ValueError('O campo username é obrigatório')
-        # se empresa vier em extra_fields, usa e remove
-        if empresa is None and 'empresa' in extra_fields:
-            empresa = extra_fields.pop('empresa')
-        user = self.model(username=username, empresa=empresa, **extra_fields)
+        if empresa:
+            empresa = Empresa.objects.get(id=empresa)
+
+        user = self.model(
+            username=username,
+            empresa=empresa,
+            **extra_fields
+        )
+
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -162,6 +165,33 @@ class Empresa(BaseModel):
     email = models.EmailField(unique=True, verbose_name='E-mail')
     telefone = models.CharField(max_length=20, unique=True, validators=phone_validators, verbose_name='Telefone')
     cep = models.CharField(max_length=9, validators=cep_validators, verbose_name='CEP')
+    
+    # Factory Method: tipo de política de cálculo por empresa
+    FACTORY_CHOICES = [
+        ('padrao', 'Padrão'),
+        ('premium', 'Premium'),
+        ('comercial', 'Comercial'),
+    ]
+    tipo_calculo = models.CharField(
+        max_length=20,
+        choices=FACTORY_CHOICES,
+        default='padrao',
+        verbose_name='Tipo de Cálculo de Aluguel'
+    )
+    
+    # Decorator Pattern: flags para compor políticas de preço
+    aplica_acrescimo_feriado = models.BooleanField(
+        default=True,
+        verbose_name='Acréscimo em Feriados (20%)'
+    )
+    aplica_acrescimo_fim_semana = models.BooleanField(
+        default=False,
+        verbose_name='Acréscimo em Fim de Semana (15%)'
+    )
+    aplica_acrescimo_temporada_alta = models.BooleanField(
+        default=False,
+        verbose_name='Acréscimo Temporada Alta (25%)'
+    )
 
     class Meta:
         db_table = 'empresa'
@@ -170,6 +200,16 @@ class Empresa(BaseModel):
 
     def __str__(self):
         return self.nome
+    
+    def get_aluguel_factory(self):
+        """Retorna a factory apropriada para esta empresa (Factory Method)."""
+        from .factories import AluguelFactoryPadrao, AluguelFactoryPremium, AluguelFactoryComercial
+        
+        if self.tipo_calculo == 'premium':
+            return AluguelFactoryPremium()
+        elif self.tipo_calculo == 'comercial':
+            return AluguelFactoryComercial()
+        return AluguelFactoryPadrao()
 
 class Carro(BaseModel):
     placa = models.CharField(max_length=10, unique=True, validators=plate_validators, verbose_name='Placa')
@@ -250,36 +290,127 @@ class Aluguel(BaseModel):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, verbose_name='Cliente', db_column='cliente_id')
     vendedor = models.ForeignKey(Vendedor, on_delete=models.CASCADE, verbose_name='Vendedor', db_column='vendedor_id')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, verbose_name='Empresa', db_column='empresa_id')
-    multa = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    def calcular_preco(self):
-        dias = (self.data_devolucao_prevista - self.data_aluguel).days + 1
-        total = Decimal(dias) * self.carro.preco_base_dia
-
-        # verifica se há feriado no intervalo
-        data_atual = self.data_aluguel
-        aumento_por_feriado = False
-
-        while data_atual <= self.data_devolucao_prevista:
-            if data_atual in FERIADOS:
-                aumento_por_feriado = True
-                break
-            data_atual += timedelta(days=1)
-
-        if aumento_por_feriado:
-            total *= Decimal('1.20')  # +20%
-
-        return total
-
-    def save(self, *args, **kwargs):
-        if self.data_aluguel and self.data_devolucao_prevista and self.carro:
-            self.valor_total = self.calcular_preco()
-        super().save(*args, **kwargs)    
+    multa = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    # State Pattern: ciclo de vida do aluguel
+    STATUS_CHOICES = [
+        ('criado', 'Criado'),
+        ('ativo', 'Ativo'),
+        ('devolvido', 'Devolvido'),
+        ('com_atraso', 'Com Atraso'),
+        ('cancelado', 'Cancelado'),
+    ]
+    status_aluguel = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='criado',
+        verbose_name='Status do Aluguel'
+    )
+    
+    # Atributo transiente (não persiste em DB) - apenas em memória
+    _estado = None
 
     class Meta:
         db_table = 'alugueis'
         verbose_name = 'Aluguel'
         verbose_name_plural = 'Aluguéis'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._inicializar_estado()
+    
+    def _inicializar_estado(self):
+        """Mapeia string status_aluguel para objeto de estado (State Pattern)."""
+        from .aluguel_state import (
+            AluguelCriado, AluguelAtivo, AluguelDevolvido,
+            AluguelComAtraso, AluguelCancelado
+        )
+        
+        estado_map = {
+            'criado': AluguelCriado(),
+            'ativo': AluguelAtivo(),
+            'devolvido': AluguelDevolvido(),
+            'com_atraso': AluguelComAtraso(),
+            'cancelado': AluguelCancelado(),
+        }
+        self._estado = estado_map.get(self.status_aluguel, AluguelCriado())
+    
+    def ativar(self):
+        """Transiciona de Criado para Ativo (State Pattern)."""
+        if self.status_aluguel != 'criado':
+            raise Exception(
+                f"Não é possível ativar um aluguel em estado '{self.status_aluguel}'."
+            )
+        self.status_aluguel = 'ativo'
+        self._inicializar_estado()
+        self.carro.status = 'alugado'
+        self.carro.save(update_fields=['status'])
+        self.save(update_fields=['status_aluguel'])
+    
+    def devolver(self):
+        """Processa devolução via state pattern."""
+        self._estado.devolver(self)
+        # Atualiza status_aluguel baseado no estado
+        from .aluguel_state import AluguelDevolvido, AluguelComAtraso
+        if isinstance(self._estado, AluguelComAtraso):
+            self.status_aluguel = 'com_atraso'
+        elif isinstance(self._estado, AluguelDevolvido):
+            self.status_aluguel = 'devolvido'
+        self.save(update_fields=['status_aluguel', 'data_devolucao_real', 'multa'])
+    
+    def cancelar(self):
+        """Cancela aluguel (apenas se criado)."""
+        if self.status_aluguel != 'criado':
+            raise Exception(
+                f"Não é possível cancelar um aluguel em estado '{self.status_aluguel}'."
+            )
+        self.status_aluguel = 'cancelado'
+        self._inicializar_estado()
+        self.save(update_fields=['status_aluguel'])
+    
+    def pode_editar(self) -> bool:
+        """Verifica se aluguel pode ser editado (State Pattern)."""
+        return self._estado.pode_editar()
+    
+    def _calcular_multa(self, atraso_dias: int) -> Decimal:
+        """Calcula multa por atraso (20% por dia de atraso)."""
+        return atraso_dias * self.valor_total * Decimal('0.20')
+    
+    def calcular_preco_com_politica(self, empresa):
+        """Calcula preço usando Decorator Pattern com políticas da empresa."""
+        from .price_calculator import (
+            PriceCalculatorBase,
+            FeriadoDecorator,
+            FimDeSemanDecorator,
+            TemporadaAltaDecorator
+        )
+        
+        dias = (self.data_devolucao_prevista - self.data_aluguel).days + 1
+        
+        # Cria calculador base
+        calculator = PriceCalculatorBase()
+        
+        # Compõe com decorators conforme política da empresa
+        if empresa.aplica_acrescimo_feriado:
+            calculator = FeriadoDecorator(calculator)
+        
+        if empresa.aplica_acrescimo_fim_semana:
+            calculator = FimDeSemanDecorator(calculator)
+        
+        if empresa.aplica_acrescimo_temporada_alta:
+            calculator = TemporadaAltaDecorator(calculator)
+        
+        return calculator.calcular(
+            dias=dias,
+            preco_base_dia=self.carro.preco_base_dia,
+            data_inicio=self.data_aluguel,
+            data_fim=self.data_devolucao_prevista
+        )
+
+    def save(self, *args, **kwargs):
+        if self.data_aluguel and self.data_devolucao_prevista and self.carro and self.empresa:
+            self.valor_total = self.calcular_preco_com_politica(self.empresa)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Aluguel {self.id} - {self.cliente.nome} - {self.carro.modelo}"
+        return f"Aluguel {self.id} - {self.cliente.nome} - {self.carro.modelo} ({self.get_status_aluguel_display()})"

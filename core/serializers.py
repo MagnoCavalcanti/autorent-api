@@ -50,51 +50,32 @@ class AluguelSerializer(EmpresaFromURLMixin, serializers.ModelSerializer):
             return attrs
     
     def create(self, validated_data):
-        request = self.context["request"]
-        empresa_slug = self.context["view"].kwargs["empresa"]  # nome da empresa recebido na URL
-
-        # Busca a empresa pelo nome
+        """Cria aluguel usando Factory Method definido na empresa."""
+        empresa_slug = self.context["view"].kwargs["empresa"]
+        
         try:
             empresa = Empresa.objects.get(nome=empresa_slug)
         except Empresa.DoesNotExist:
             raise serializers.ValidationError({"empresa": "Empresa não encontrada."})
+        
         cliente_data = validated_data.pop('cliente')
-
-        # cliente existente ou não
-        cliente, created = Cliente.objects.get_or_create(
-            cpf=cliente_data['cpf'],
-            defaults=cliente_data
-        )
-
-        carro  = validated_data['carro']
-
-        # DATAS
-        data_aluguel = validated_data['data_aluguel']
-        data_prevista = validated_data['data_devolucao_prevista']
-        # Cálculo de dias
-        dias = (data_prevista - data_aluguel).days
-        if dias <= 0:
-            dias = 1  # garante pelo menos 1 diária
-
-        # Cálculo do valor total
-        valor_total = dias * carro.preco_base_dia
-
-        # Criar o aluguel
-        aluguel = Aluguel.objects.create(
-            cliente=cliente,
-            valor_total=valor_total,
+        
+        # Usa a factory da empresa (Factory Method Pattern)
+        factory = empresa.get_aluguel_factory()
+        aluguel = factory.criar(
+            cliente_data=cliente_data,
+            carro=validated_data['carro'],
+            data_aluguel=validated_data['data_aluguel'],
+            data_devolucao_prevista=validated_data['data_devolucao_prevista'],
             empresa=empresa,
-            **validated_data
+            vendedor=validated_data['vendedor']
         )
-
-        # Atualiza status do carro
-        carro.status = 'alugado'
-        carro.save()
-
+        
         return aluguel
 
     
 class DevolucaoSerializer(serializers.Serializer):
+    """Serializer simplificado para devolver aluguel usando State Pattern."""
     aluguel_id = serializers.IntegerField()
 
     def validate_aluguel_id(self, value):
@@ -103,34 +84,15 @@ class DevolucaoSerializer(serializers.Serializer):
         except Aluguel.DoesNotExist:
             raise serializers.ValidationError("Aluguel não encontrado.")
 
-        if aluguel.devolvido:
+        if aluguel.status_aluguel in ['devolvido', 'com_atraso']:
             raise serializers.ValidationError("Este aluguel já foi devolvido.")
 
         return value
 
     def save(self):
+        """Processa devolução do aluguel via State Pattern."""
         aluguel = Aluguel.objects.get(id=self.validated_data['aluguel_id'])
-        veiculo = aluguel.veiculo
-
-        hoje = date.today()
-        aluguel.data_devolucao_real = hoje
-
-        # Calcular atraso
-        atraso = (hoje - aluguel.data_devolucao_prevista).days
-
-        if atraso > 0:
-            # multa = dias * valor_diaria * 20%
-            aluguel.multa = atraso * aluguel.valor_total * Decimal("0.20")
-        else:
-            aluguel.multa = 0
-
-        
-        aluguel.save()
-
-        # Deixar veículo disponível
-        veiculo.status = 'disponivel'
-        veiculo.save()
-
+        aluguel.devolver()  # State Pattern cuida de todas as transições
         return aluguel
 
 
