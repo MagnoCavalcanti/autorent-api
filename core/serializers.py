@@ -1,8 +1,12 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.settings import api_settings
 from .models import Carro, Cliente, Empresa, Vendedor, Aluguel, Usuario
 from .mixins import EmpresaFromURLMixin
+from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from datetime import date
 from decimal import Decimal
@@ -21,7 +25,8 @@ class ClienteSerializer(serializers.ModelSerializer):
 class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['nome', 'cep', 'telefone', 'email', 'cnpj']
+        fields = ['nome', 'slug', 'cep', 'telefone', 'email', 'cnpj']
+        read_only_fields = ['slug']
 
 
 class VendedorSerializer(EmpresaFromURLMixin, serializers.ModelSerializer):
@@ -54,7 +59,7 @@ class AluguelSerializer(EmpresaFromURLMixin, serializers.ModelSerializer):
         empresa_slug = self.context["view"].kwargs["empresa"]
         
         try:
-            empresa = Empresa.objects.get(nome=empresa_slug)
+            empresa = Empresa.objects.get(slug=empresa_slug)
         except Empresa.DoesNotExist:
             raise serializers.ValidationError({"empresa": "Empresa não encontrada."})
         
@@ -96,48 +101,51 @@ class DevolucaoSerializer(serializers.Serializer):
         return aluguel
 
 
-class RegistroUsuarioSerializer(serializers.ModelSerializer):
-    """
-    Serializer para registrar novo usuário.
-    Recebe: nome_usuario, password, nome_empresa
-    Retorna: nome_usuario, email (sem password)
-    """
-    nome_empresa = serializers.CharField(write_only=True, required=True, label='Nome da Empresa')
-    password = serializers.CharField(write_only=True, required=True, min_length=6, label='Senha')
-    
+class EmpresaRegistroSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Usuario
-        fields = ['username', 'password', 'nome_empresa']
-        extra_kwargs = {
-            'username': {'required': True}
-        }
-    
-    def validate_nome_usuario(self, value):
-        """Valida se nome_usuario já existe"""
-        if Usuario.objects.filter(username=value).exists():
-            raise serializers.ValidationError('Este nome de usuário já está em uso.')
-        return value
-    
-    def validate_nome_empresa(self, value):
-        """Valida se empresa existe e retorna o objeto"""
-        try:
-            empresa = Empresa.objects.get(nome=value)
-        except Empresa.DoesNotExist:
-            raise serializers.ValidationError(f"Empresa '{value}' não encontrada.")
-        return empresa
-    
+        model = Empresa
+        fields = ['nome', 'cep', 'telefone', 'email', 'cnpj']
+
+
+class RegistroUsuarioSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True, max_length=150)
+    password = serializers.CharField(write_only=True, required=True, min_length=6)
+    empresa = EmpresaRegistroSerializer(required=True)
+
+    def validate(self, attrs):
+        empresa_data = attrs.get('empresa')
+        if not isinstance(empresa_data, dict):
+            raise serializers.ValidationError({
+                'empresa': 'Campo empresa é obrigatório e deve ser um objeto válido.'
+            })
+        if Usuario.objects.filter(username=attrs['username']).exists():
+            raise serializers.ValidationError({'username': 'Este nome de usuário já está em uso.'})
+        if Empresa.objects.filter(email=empresa_data.get('email')).exists():
+            raise serializers.ValidationError({'empresa': {'email': 'Este email já está cadastrado.'}})
+        if Empresa.objects.filter(cnpj=empresa_data.get('cnpj')).exists():
+            raise serializers.ValidationError({'empresa': {'cnpj': 'Este CNPJ já está cadastrado.'}})
+        return attrs
+
     def create(self, validated_data):
-        """Cria o usuário com a senha hasheada"""
-        empresa = validated_data.pop('nome_empresa')  # remove e pega a empresa
-        password = validated_data.pop('password')  # remove e pega a senha
-        
-        # cria usuário com create_user do manager (que faz o hash)
-        user = Usuario.objects.create_user(
-            username=validated_data['username'],
-            password=password,
-            empresa=empresa,
-        )
-        return user
+        empresa_data = validated_data.pop('empresa')
+        password = validated_data.pop('password')
+
+        try:
+            with transaction.atomic():
+                empresa = Empresa.objects.create(**empresa_data)
+                usuario = Usuario.objects.create_user(
+                    username=validated_data['username'],
+                    password=password,
+                    empresa=empresa,
+                )
+                return usuario
+        except IntegrityError as exc:
+            mensagem = str(exc).lower()
+            if 'empresa.email' in mensagem or 'email' in mensagem:
+                raise serializers.ValidationError({'empresa': {'email': 'Este email já está cadastrado.'}})
+            if 'empresa.cnpj' in mensagem or 'cnpj' in mensagem:
+                raise serializers.ValidationError({'empresa': {'cnpj': 'Este CNPJ já está cadastrado.'}})
+            raise serializers.ValidationError({'detail': 'Não foi possível concluir o registro.'})
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -146,16 +154,18 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     Usa username como campo de login.
     """
     username_field = 'username'
+    empresa = serializers.CharField(write_only=True, required=False, allow_null=True)
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         # adiciona informações extras ao token
         token['username'] = user.username
-        token['empresa_id'] = user.empresa_id
+        token['empresa'] = getattr(user, '_empresa_slug_token', None)
         return token
 
     def validate(self, attrs):
+        empresa_slug = attrs.get('empresa', None)
         authenticate_kwargs = {
             self.username_field: attrs[self.username_field],
             'password': attrs['password'],
@@ -163,9 +173,23 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             authenticate_user = authenticate(**authenticate_kwargs)
         except TypeError:
-            raise serializers.ValidationError('Nome de usuário ou senha inválidos.')
+            raise AuthenticationFailed('Credenciais inválidas.')
 
         if authenticate_user is None or not authenticate_user.is_active:
-            raise serializers.ValidationError('Nenhuma conta ativa encontrada com essas credenciais.')
+            raise AuthenticationFailed('Credenciais inválidas.')
 
-        return super().validate(attrs)
+        if not (authenticate_user.is_staff or authenticate_user.is_superuser):
+            if not empresa_slug:
+                raise serializers.ValidationError({'detail': 'O campo empresa é obrigatório.'})
+            if not authenticate_user.empresa or authenticate_user.empresa.slug != empresa_slug:
+                raise AuthenticationFailed('Credenciais inválidas.')
+
+        authenticate_user._empresa_slug_token = empresa_slug or None
+        refresh = self.get_token(authenticate_user)
+        data = {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
+        if api_settings.UPDATE_LAST_LOGIN:
+            update_last_login(None, authenticate_user)
+        return data
